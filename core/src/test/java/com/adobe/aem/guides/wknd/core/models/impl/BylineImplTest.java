@@ -1,32 +1,53 @@
 package com.adobe.aem.guides.wknd.core.models.impl;
 
 import com.adobe.aem.guides.wknd.core.models.Byline;
+import com.adobe.cq.wcm.core.components.models.Image;
 import com.adobe.fd.fp.util.RepositoryUtils;
+import com.google.common.collect.ImmutableList;
 import io.wcm.testing.mock.aem.junit5.AemContext;
 import io.wcm.testing.mock.aem.junit5.AemContextExtension;
+import org.apache.sling.api.resource.Resource;
+import org.apache.sling.models.factory.ModelFactory;
 import org.apache.sling.testing.mock.sling.ResourceResolverType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import javax.jcr.Session;
 
+import java.util.Collections;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-@ExtendWith(AemContextExtension.class)
-@ExtendWith(MockitoExtension.class)
-class BylineImplTest {
-
+@ExtendWith({ AemContextExtension.class, MockitoExtension.class })
+public class BylineImplTest {
 
     private final AemContext ctx = new AemContext();
+
+    @Mock
+    private Image image;
+
+    @Mock
+    private ModelFactory modelFactory;
+
+
 
     @BeforeEach
     void setUp() {
         ctx.addModelsForClasses(BylineImpl.class);
-        ctx.load().json("/home/ankit/IdeaProjects/aem-guides-wknd/core/src/test/java/com/adobe/aem/guides/wknd/core/models/impl/BylineImplTest.json", "/content");
+        ctx.load().json("/com/BylineImplTest.json", "/content");
+
+        lenient().when(modelFactory.getModelFromWrappedRequest(eq(ctx.request()), any(Resource.class), eq(Image.class)))
+                .thenReturn(image);
+
+        ctx.registerService(ModelFactory.class, modelFactory, org.osgi.framework.Constants.SERVICE_RANKING,
+                Integer.MAX_VALUE);
     }
 
     @Test
@@ -42,10 +63,101 @@ class BylineImplTest {
     }
 
     @Test
-    void getOccupations() {
+    public void testGetOccupations() {
+        List<String> expected = new ImmutableList.Builder<String>()
+                .add("Blogger")
+                .add("Photographer")
+                .add("YouTuber")
+                .build();
+
+        ctx.currentResource("/content/byline");
+        Byline byline = ctx.request().adaptTo(Byline.class);
+
+        List<String> actual = byline.getOccupations();
+
+        assertEquals(expected, actual);
+    }
+
+
+    @Test
+    public void testIsEmpty() {
+        ctx.currentResource("/content/empty");
+
+        Byline byline = ctx.request().adaptTo(Byline.class);
+
+        assertTrue(byline.isEmpty());
     }
 
     @Test
-    void isEmpty() {
+    public void testIsEmpty_WithoutName() {
+        ctx.currentResource("/content/without-name");
+
+        Byline byline = ctx.request().adaptTo(Byline.class);
+
+        assertTrue(byline.isEmpty());
+    }
+
+    @Test
+    public void testIsEmpty_WithoutOccupations() {
+        ctx.currentResource("/content/without-occupations");
+
+        Byline byline = ctx.request().adaptTo(Byline.class);
+
+        assertTrue(byline.isEmpty());
+    }
+
+    @Test
+    public void testIsEmpty_WithoutImage() {
+        ctx.currentResource("/content/byline");
+
+        lenient().when(modelFactory.getModelFromWrappedRequest(eq(ctx.request()),
+                any(Resource.class),
+                eq(Image.class))).thenReturn(null);
+
+        Byline byline = ctx.request().adaptTo(Byline.class);
+
+        assertTrue(byline.isEmpty());
+    }
+
+    @Test
+    public void testIsEmpty_WithoutImageSrc() {
+        ctx.currentResource("/content/byline");
+
+        when(image.getSrc()).thenReturn("");
+
+        Byline byline = ctx.request().adaptTo(Byline.class);
+
+        assertTrue(byline.isEmpty());
+    }
+
+    @Test
+    public void testIsNotEmpty() {
+        ctx.currentResource("/content/byline");
+        when(image.getSrc()).thenReturn("/content/bio.png");
+
+        Byline byline = ctx.request().adaptTo(Byline.class);
+
+        assertFalse(byline.isEmpty());
+    }
+
+    @Test
+    public void testGetOccupations_WithoutOccupations() {
+        List<String> expected = Collections.emptyList();
+
+        ctx.currentResource("/content/empty");
+        Byline byline = ctx.request().adaptTo(Byline.class);
+
+        List<String> actual = byline.getOccupations();
+
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testIsEmpty_WithEmptyArrayOfOccupations() {
+        ctx.currentResource("/content/without-occupations-empty-array");
+
+        Byline byline = ctx.request().adaptTo(Byline.class);
+
+        assertTrue(byline.isEmpty());
     }
 }
